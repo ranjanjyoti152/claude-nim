@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Anthropic Gateway · Sign in</title>
+  <link rel="stylesheet" href="/static/app.css" />
+</head>
+<body>
+  <div class="auth-wrap">
+    <div class="auth-card">
+      <h1>Anthropic Gateway<span style="color:var(--accent)">.</span></h1>
+      <p class="sub">Claude Code, powered by NVIDIA NIM.</p>
+
+      <div class="tabs">
+        <button class="tab active" id="tab-login" onclick="switchTab('login')">Log in</button>
+        <button class="tab" id="tab-signup" onclick="switchTab('signup')">Sign up</button>
+      </div>
+
+      <form id="form" onsubmit="return submitForm(event)">
+        <label for="email">Email</label>
+        <input id="email" type="email" required autocomplete="email" />
+        <label for="password">Password</label>
+        <input id="password" type="password" required minlength="6" autocomplete="current-password" />
+        <button class="btn full" type="submit" id="submitBtn">Log in</button>
+      </form>
+
+      <div class="error" id="error"></div>
+      <p class="note" id="firstNote">The first account created becomes the admin.</p>
+    </div>
+  </div>
+
+  <script>
+    let mode = "login";
+    function switchTab(m) {
+      mode = m;
+      document.getElementById("tab-login").classList.toggle("active", m === "login");
+      document.getElementById("tab-signup").classList.toggle("active", m === "signup");
+      document.getElementById("submitBtn").textContent = m === "login" ? "Log in" : "Create account";
+      document.getElementById("firstNote").style.display = m === "signup" ? "block" : "none";
+      document.getElementById("error").textContent = "";
+    }
+    // If already logged in, go to dashboard.
+    if (localStorage.getItem("token")) location.href = "/dashboard";
+
+    async function submitForm(e) {
+      e.preventDefault();
+      const email = document.getElementById("email").value.trim();
+      const password = document.getElementById("password").value;
+      const err = document.getElementById("error");
+      err.textContent = "";
+      try {
+        const res = await fetch(`/api/auth/${mode}`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email, password }),
+        });
+        const data = await res.json();
+        if (!res.ok) { err.textContent = data.detail || "Something went wrong."; return false; }
+        localStorage.setItem("token", data.access_token);
+        localStorage.setItem("role", data.role);
+        localStorage.setItem("email", data.email);
+        location.href = "/dashboard";
+      } catch (ex) {
+        err.textContent = "Network error: " + ex.message;
+      }
+      return false;
+    }
+  </script>
+</body>
+</html>

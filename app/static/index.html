@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Anthropic Gateway · Dashboard</title>
+  <link rel="stylesheet" href="/static/app.css" />
+</head>
+<body>
+  <div class="shell">
+    <aside class="side">
+      <div class="brand">Anthropic Gateway<span class="dot">.</span></div>
+      <nav class="nav">
+        <a data-view="usage" class="active" onclick="show('usage')">Usage</a>
+        <a data-view="keys" onclick="show('keys')">API Keys</a>
+        <a data-view="models" onclick="show('models')">Models</a>
+        <a data-view="users" id="nav-users" class="hidden" onclick="show('users')">Users</a>
+        <a data-view="setup" onclick="show('setup')">Setup Guide</a>
+      </nav>
+      <div class="foot">
+        <div id="whoami" class="mono"></div>
+        <button class="btn ghost sm" style="margin-top:10px;width:100%" onclick="logout()">Log out</button>
+      </div>
+    </aside>
+
+    <main class="main">
+      <!-- USAGE -->
+      <section id="view-usage">
+        <h1 class="page-title">Usage</h1>
+        <p class="page-sub">Requests routed through the gateway to NVIDIA NIM.</p>
+        <div class="stat-grid" id="statGrid"></div>
+        <div class="card">
+          <h3>By model</h3>
+          <div id="byModel"></div>
+        </div>
+        <div class="card">
+          <h3>Recent requests</h3>
+          <div id="recentTable"></div>
+        </div>
+      </section>
+
+      <!-- KEYS -->
+      <section id="view-keys" class="hidden">
+        <h1 class="page-title">API Keys</h1>
+        <p class="page-sub">Generate a gateway key, then set it as <span class="mono">ANTHROPIC_AUTH_TOKEN</span> for Claude Code.</p>
+        <div class="card">
+          <h3>Create a key</h3>
+          <div class="row">
+            <div>
+              <label for="keyLabel">Label</label>
+              <input id="keyLabel" placeholder="e.g. my-laptop" value="default" />
+            </div>
+            <button class="btn" onclick="createKey()">Create key</button>
+          </div>
+          <div id="newKey" class="keybox hidden"></div>
+        </div>
+        <div class="card">
+          <h3>Your keys</h3>
+          <div id="keysTable"></div>
+        </div>
+      </section>
+
+      <!-- MODELS -->
+      <section id="view-models" class="hidden">
+        <h1 class="page-title">Models</h1>
+        <p class="page-sub">Map Claude Code's model slots to NVIDIA NIM models.</p>
+        <div class="card">
+          <h3>Slot mappings</h3>
+          <div id="mapRows"></div>
+          <p class="hint" style="margin-top:12px">Claude Code sends opus/sonnet/haiku model strings; the gateway routes each to the NIM model you pick here. "default" is the fallback.</p>
+        </div>
+      </section>
+
+      <!-- USERS (admin) -->
+      <section id="view-users" class="hidden">
+        <h1 class="page-title">Users</h1>
+        <p class="page-sub">Everyone registered on this gateway.</p>
+        <div class="card"><div id="usersTable"></div></div>
+      </section>
+
+      <!-- SETUP -->
+      <section id="view-setup" class="hidden">
+        <h1 class="page-title">Setup Guide</h1>
+        <p class="page-sub">Point Claude Code at this gateway.</p>
+        <div class="card" id="setupCard"></div>
+      </section>
+    </main>
+  </div>
+  <script src="/static/app.js"></script>
+</body>
+</html>
