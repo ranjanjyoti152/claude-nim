@@ -39,6 +39,15 @@ async def list_nim_models(_: dict = Depends(current_user)):
     return {"models": chat, "total": len(models), "chat_count": len(chat)}
 
 
+@router.post("/test")
+async def test_model(body: dict, _: dict = Depends(current_user)):
+    """Fire a tiny probe completion to check whether a model is runnable."""
+    model = (body or {}).get("model", "")
+    if not model:
+        raise HTTPException(400, "model is required")
+    return await nim_client.probe(model)
+
+
 @router.get("/mappings", response_model=list[ModelMappingOut])
 async def get_mappings(_: dict = Depends(current_user)):
     out = []

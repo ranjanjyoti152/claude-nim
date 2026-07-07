@@ -18,6 +18,7 @@ async def record(
             {
                 "owner_id": owner.get("owner_id"),
                 "owner_email": owner.get("owner_email"),
+                "key_id": owner.get("_id"),
                 "key_label": owner.get("label"),
                 "claude_model": claude_model,
                 "nim_model": nim_model,

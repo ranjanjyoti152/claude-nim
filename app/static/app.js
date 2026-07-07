@@ -79,8 +79,13 @@ async function loadUsage() {
 // --- Keys ---
 async function createKey() {
   const label = document.getElementById("keyLabel").value.trim() || "default";
+  const rpm = parseInt(document.getElementById("keyRpm").value, 10) || 0;
+  const cap = parseInt(document.getElementById("keyCap").value, 10) || 0;
   try {
-    const data = await api("/api/keys", { method: "POST", body: JSON.stringify({ label }) });
+    const data = await api("/api/keys", {
+      method: "POST",
+      body: JSON.stringify({ label, rpm_limit: rpm, token_cap: cap }),
+    });
     const box = document.getElementById("newKey");
     box.classList.remove("hidden");
     box.innerHTML = `Copy this now — it won't be shown again:<br><br><strong>${esc(data.key)}</strong>`;
@@ -94,6 +99,26 @@ async function revokeKey(id) {
   catch (e) { alert(e.message); }
 }
 
+async function editLimits(id, rpm, cap) {
+  const nrpm = prompt("Requests per minute (0 = unlimited):", rpm);
+  if (nrpm === null) return;
+  const ncap = prompt("Total token cap (0 = unlimited):", cap);
+  if (ncap === null) return;
+  try {
+    await api("/api/keys/" + id + "/limits", {
+      method: "PUT",
+      body: JSON.stringify({ rpm_limit: parseInt(nrpm, 10) || 0, token_cap: parseInt(ncap, 10) || 0 }),
+    });
+    loadKeys();
+  } catch (e) { alert(e.message); }
+}
+
+function capCell(k) {
+  const rpm = k.rpm_limit ? k.rpm_limit + "/min" : "∞";
+  const cap = k.token_cap ? `${fmt(k.tokens_used)}/${fmt(k.token_cap)}` : `${fmt(k.tokens_used)} / ∞`;
+  return `${rpm} · ${cap} tok`;
+}
+
 async function loadKeys() {
   const el = document.getElementById("keysTable");
   try {
@@ -101,13 +126,16 @@ async function loadKeys() {
     if (!keys.length) { el.innerHTML = '<div class="empty">No keys yet.</div>'; return; }
     const showOwner = role === "admin";
     el.innerHTML = `<table><thead><tr>
-      <th>Label</th><th>Key</th>${showOwner ? "<th>Owner</th>" : ""}<th>Status</th><th></th>
+      <th>Label</th><th>Key</th>${showOwner ? "<th>Owner</th>" : ""}<th>Limits · Usage</th><th>Status</th><th></th>
       </tr></thead><tbody>` + keys.map(k => `<tr>
         <td>${esc(k.label)}</td>
         <td class="mono">${esc(k.masked)}</td>
         ${showOwner ? `<td>${esc(k.owner_email || "")}</td>` : ""}
+        <td class="mono" style="font-size:12px">${capCell(k)}</td>
         <td>${k.revoked ? '<span class="badge revoked">revoked</span>' : '<span class="badge user">active</span>'}</td>
-        <td>${k.revoked ? "" : `<button class="btn danger sm" onclick="revokeKey('${k.id}')">Revoke</button>`}</td>
+        <td>${k.revoked ? "" : `
+          <button class="btn ghost sm" onclick="editLimits('${k.id}', ${k.rpm_limit}, ${k.token_cap})">Limits</button>
+          <button class="btn danger sm" onclick="revokeKey('${k.id}')">Revoke</button>`}</td>
       </tr>`).join("") + "</tbody></table>";
   } catch (e) { el.innerHTML = `<div class="empty">${esc(e.message)}</div>`; }
 }
@@ -131,9 +159,30 @@ async function loadModels() {
       return `<div class="row" style="margin-bottom:12px">
         <div><label>${slot}</label><select id="slot-${slot}">${opts}</select></div>
         <button class="btn sm" onclick="saveMapping('${slot}', this)">Save</button>
+        <button class="btn ghost sm" onclick="testModel('${slot}', this)">Test</button>
+        <span id="test-${slot}" class="hint" style="min-width:120px"></span>
       </div>`;
     }).join("");
   } catch (e) { el.innerHTML = `<div class="empty">${esc(e.message)}</div>`; }
+}
+
+async function testModel(slot, btn) {
+  const model = document.getElementById("slot-" + slot).value;
+  const out = document.getElementById("test-" + slot);
+  if (!model) { out.innerHTML = '<span style="color:var(--muted)">pick a model first</span>'; return; }
+  const orig = btn.textContent;
+  btn.textContent = "Testing…"; btn.disabled = true;
+  out.textContent = "";
+  try {
+    const r = await api("/api/models/test", { method: "POST", body: JSON.stringify({ model }) });
+    out.innerHTML = r.ok
+      ? `<span style="color:var(--ok)">✓ runnable${r.latency_ms ? " (" + r.latency_ms + "ms)" : ""}</span>`
+      : `<span style="color:var(--danger)">✗ ${r.status || "err"}: ${esc((r.detail || "").slice(0, 60))}</span>`;
+  } catch (e) {
+    out.innerHTML = `<span style="color:var(--danger)">✗ ${esc(e.message)}</span>`;
+  } finally {
+    btn.textContent = orig; btn.disabled = false;
+  }
 }
 
 async function saveMapping(slot, btn) {

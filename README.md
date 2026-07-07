@@ -221,12 +221,26 @@ Claude Code sends a Claude model string (e.g. `claude-sonnet-4-6`). The gateway:
 
 ## 🗺️ Roadmap
 
-- [ ] "Test model" button — fire a probe completion to detect runnable vs 404 models
-- [ ] Per-key rate limits & spend caps
-- [ ] Prometheus / OpenTelemetry metrics export
-- [ ] Response caching for repeated prompts
-- [ ] Anthropic prompt-caching passthrough emulation
-- [ ] Multiple NIM backends with load balancing
+- [x] **"Test model" button** — fire a probe completion to detect runnable vs 404 models
+- [x] **Per-key rate limits & spend caps** — `rpm` + token cap per key, enforced with `429`
+- [x] **Prometheus metrics export** — `/metrics` with request/token counters + latency histogram
+- [x] **Response caching** — identical non-streaming requests served from a Mongo TTL cache
+- [x] **Prompt-caching passthrough emulation** — `cache_read/creation_input_tokens` surfaced to Claude Code
+- [x] **Multi-backend load balancing** — round-robin across NIM backends with 5xx/connection failover
+
+🎉 **All roadmap items shipped.** New ideas? Open an issue.
+
+### Advanced configuration
+
+| Variable | Description | Default |
+|---|---|---|
+| `NIM_BACKENDS` | Extra backends for load balancing — comma-separated `url\|key` pairs | — |
+| `CACHE_ENABLED` | Cache identical non-streaming responses | `true` |
+| `CACHE_TTL_SECONDS` | Cache entry lifetime | `300` |
+
+**Metrics:** scrape `GET /metrics` (Prometheus text format — unauthenticated, no secrets).
+**Test a model:** click **Test** next to any slot on the Models page to confirm it's runnable before use.
+**Rate limits / caps:** set per key at creation, or edit later via the **Limits** button on the API Keys page.
 
 Contributions welcome — see below.
 

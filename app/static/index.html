@@ -50,6 +50,14 @@
               <label for="keyLabel">Label</label>
               <input id="keyLabel" placeholder="e.g. my-laptop" value="default" />
             </div>
+            <div>
+              <label for="keyRpm">Rate limit (req/min, 0 = ∞)</label>
+              <input id="keyRpm" type="number" min="0" value="0" />
+            </div>
+            <div>
+              <label for="keyCap">Token cap (0 = ∞)</label>
+              <input id="keyCap" type="number" min="0" value="0" />
+            </div>
             <button class="btn" onclick="createKey()">Create key</button>
           </div>
           <div id="newKey" class="keybox hidden"></div>

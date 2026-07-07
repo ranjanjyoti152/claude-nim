@@ -32,6 +32,13 @@ class UserOut(BaseModel):
 # --- API keys ---
 class CreateKeyRequest(BaseModel):
     label: str = Field(default="default", max_length=64)
+    rpm_limit: int = Field(default=0, ge=0)   # 0 = unlimited
+    token_cap: int = Field(default=0, ge=0)   # 0 = unlimited
+
+
+class UpdateKeyLimits(BaseModel):
+    rpm_limit: int = Field(default=0, ge=0)
+    token_cap: int = Field(default=0, ge=0)
 
 
 class CreatedKey(BaseModel):
@@ -50,6 +57,9 @@ class KeyOut(BaseModel):
     owner_email: Optional[str] = None
     created_at: datetime
     revoked: bool = False
+    rpm_limit: int = 0
+    token_cap: int = 0
+    tokens_used: int = 0
 
 
 # --- Model mappings ---

@@ -215,10 +215,29 @@ def openai_to_anthropic(resp: dict, model: str) -> dict:
         "content": content_blocks,
         "stop_reason": _map_stop(choice.get("finish_reason")),
         "stop_sequence": None,
-        "usage": {
-            "input_tokens": usage.get("prompt_tokens", 0),
-            "output_tokens": usage.get("completion_tokens", 0),
-        },
+        "usage": _usage_block(usage),
+    }
+
+
+def _usage_block(usage: dict) -> dict:
+    """Anthropic usage, with prompt-caching passthrough emulation.
+
+    NIM/OpenAI may report cached prompt tokens under
+    usage.prompt_tokens_details.cached_tokens. Anthropic's schema splits input
+    into (uncached) input_tokens + cache_read_input_tokens. We surface both so
+    Claude Code's cost accounting stays correct; cache_creation is always 0
+    (NIM does not expose a separate cache-write count)."""
+    prompt = usage.get("prompt_tokens", 0) or 0
+    cached = 0
+    details = usage.get("prompt_tokens_details") or {}
+    if isinstance(details, dict):
+        cached = details.get("cached_tokens", 0) or 0
+    cached = min(cached, prompt)
+    return {
+        "input_tokens": prompt - cached,
+        "output_tokens": usage.get("completion_tokens", 0) or 0,
+        "cache_read_input_tokens": cached,
+        "cache_creation_input_tokens": 0,
     }
 
 
@@ -249,7 +268,12 @@ async def openai_stream_to_anthropic(
                 "content": [],
                 "stop_reason": None,
                 "stop_sequence": None,
-                "usage": {"input_tokens": 0, "output_tokens": 0},
+                "usage": {
+                    "input_tokens": 0,
+                    "output_tokens": 0,
+                    "cache_read_input_tokens": 0,
+                    "cache_creation_input_tokens": 0,
+                },
             },
         },
     )
@@ -261,6 +285,7 @@ async def openai_stream_to_anthropic(
     finish_reason = None
     output_tokens = 0
     input_tokens = 0
+    cached_tokens = 0
 
     async for raw in lines:
         if not raw or not raw.startswith("data:"):
@@ -276,6 +301,9 @@ async def openai_stream_to_anthropic(
         if chunk.get("usage"):
             input_tokens = chunk["usage"].get("prompt_tokens", input_tokens)
             output_tokens = chunk["usage"].get("completion_tokens", output_tokens)
+            details = chunk["usage"].get("prompt_tokens_details") or {}
+            if isinstance(details, dict):
+                cached_tokens = details.get("cached_tokens", cached_tokens) or cached_tokens
 
         choice = (chunk.get("choices") or [{}])[0]
         delta = choice.get("delta", {})
@@ -345,12 +373,18 @@ async def openai_stream_to_anthropic(
     for idx in tool_blocks.values():
         yield _sse("content_block_stop", {"type": "content_block_stop", "index": idx})
 
+    cached = min(cached_tokens, input_tokens)
     yield _sse(
         "message_delta",
         {
             "type": "message_delta",
             "delta": {"stop_reason": _map_stop(finish_reason), "stop_sequence": None},
-            "usage": {"input_tokens": input_tokens, "output_tokens": output_tokens},
+            "usage": {
+                "input_tokens": input_tokens - cached,
+                "output_tokens": output_tokens,
+                "cache_read_input_tokens": cached,
+                "cache_creation_input_tokens": 0,
+            },
         },
     )
     yield _sse("message_stop", {"type": "message_stop"})
