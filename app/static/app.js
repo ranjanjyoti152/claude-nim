@@ -256,15 +256,24 @@ async function deleteUser(id, em) {
 }
 
 // --- Settings (admin) ---
+function applyProviderPreset() {
+  const sel = document.getElementById("setProvider");
+  if (sel.value) {
+    document.getElementById("setBaseUrl").value = sel.value;
+    document.getElementById("setApiKey").focus();
+  }
+  sel.value = ""; // reset so it stays a picker, not a bound field
+}
+
 async function loadSettings() {
   try {
     const s = await api("/api/settings");
     document.getElementById("setBaseUrl").value = s.nim_base_url || "";
     document.getElementById("setApiKey").value = "";
     document.getElementById("setApiKey").placeholder = s.nvidia_api_key_set
-      ? `current: ${s.nvidia_api_key} (leave blank to keep)` : "nvapi-…";
+      ? `current: ${s.nvidia_api_key} (leave blank to keep)` : "sk-… / nvapi-…";
     document.getElementById("keyState").textContent = s.nvidia_api_key_set
-      ? "A NIM API key is configured." : "No NIM API key set — hosted NIM calls will fail until you add one.";
+      ? "A provider API key is configured." : "No API key set — provider calls will fail until you add one (not needed for keyless local servers).";
     document.getElementById("setBackends").value = s.nim_backends || "";
     document.getElementById("setCacheEnabled").value = String(!!s.cache_enabled);
     document.getElementById("setCacheTtl").value = s.cache_ttl_seconds ?? 300;

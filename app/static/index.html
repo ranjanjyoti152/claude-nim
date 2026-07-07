@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Anthropic Gateway · Dashboard</title>
-  <link rel="stylesheet" href="/static/app.css" />
+  <link rel="stylesheet" href="/static/app.css?v=3" />
 </head>
 <body>
   <div class="shell">
@@ -72,11 +72,11 @@
       <!-- MODELS -->
       <section id="view-models" class="hidden">
         <h1 class="page-title">Models</h1>
-        <p class="page-sub">Map Claude Code's model slots to NVIDIA NIM models.</p>
+        <p class="page-sub">Map Claude Code's model slots to your provider's models.</p>
         <div class="card">
           <h3>Slot mappings</h3>
           <div id="mapRows"></div>
-          <p class="hint" style="margin-top:12px">Claude Code sends opus/sonnet/haiku model strings; the gateway routes each to the NIM model you pick here. "default" is the fallback.</p>
+          <p class="hint" style="margin-top:12px">Claude Code sends opus/sonnet/haiku model strings; the gateway routes each to the provider model you pick here. "default" is the fallback.</p>
         </div>
       </section>
 
@@ -92,15 +92,29 @@
         <h1 class="page-title">Settings</h1>
         <p class="page-sub">Default model provider &amp; gateway configuration.</p>
         <div class="card">
-          <h3>NVIDIA NIM provider</h3>
-          <label for="setBaseUrl">NIM base URL</label>
+          <h3>Model provider</h3>
+          <p class="hint" style="margin-bottom:6px">Any OpenAI-compatible endpoint — NVIDIA NIM, OpenAI, Groq, Together, OpenRouter, Fireworks, or a local vLLM/Ollama server.</p>
+          <label for="setProvider">Provider preset</label>
+          <select id="setProvider" onchange="applyProviderPreset()">
+            <option value="">— choose to autofill base URL —</option>
+            <option value="https://integrate.api.nvidia.com/v1">NVIDIA NIM (hosted)</option>
+            <option value="https://api.openai.com/v1">OpenAI</option>
+            <option value="https://api.groq.com/openai/v1">Groq</option>
+            <option value="https://api.together.xyz/v1">Together AI</option>
+            <option value="https://openrouter.ai/api/v1">OpenRouter</option>
+            <option value="https://api.fireworks.ai/inference/v1">Fireworks AI</option>
+            <option value="https://api.deepseek.com/v1">DeepSeek</option>
+            <option value="http://localhost:8000/v1">Local vLLM / NIM container</option>
+            <option value="http://localhost:11434/v1">Local Ollama</option>
+          </select>
+          <label for="setBaseUrl">Base URL</label>
           <input id="setBaseUrl" placeholder="https://integrate.api.nvidia.com/v1" />
-          <label for="setApiKey">NIM API key</label>
-          <input id="setApiKey" type="password" placeholder="nvapi-… (leave blank to keep current)" />
+          <label for="setApiKey">API key</label>
+          <input id="setApiKey" type="password" placeholder="sk-… / nvapi-… (leave blank to keep current)" />
           <p class="hint" id="keyState"></p>
           <label for="setBackends">Extra backends (load balancing)</label>
           <input id="setBackends" placeholder="http://gpu1:8000/v1|,http://gpu2:8000/v1|" />
-          <p class="hint">Comma-separated <span class="mono">url|key</span> pairs. Key optional. The primary URL above is always included.</p>
+          <p class="hint">Comma-separated <span class="mono">url|key</span> pairs. Key optional. The primary URL above is always included. Requests round-robin across all backends with automatic failover.</p>
         </div>
         <div class="card">
           <h3>Response cache</h3>
@@ -130,6 +144,6 @@
       </section>
     </main>
   </div>
-  <script src="/static/app.js"></script>
+  <script src="/static/app.js?v=3"></script>
 </body>
 </html>
