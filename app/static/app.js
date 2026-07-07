@@ -242,5 +242,20 @@ setx ANTHROPIC_AUTH_TOKEN "sk-gw-...your key..."</pre>
       <li><span class="mono">meta/llama-3.1-8b-instruct</span> — fastest; good for the <span class="mono">haiku</span> (background) slot</li>
     </ul>
     <p class="hint">Tip: map <span class="mono">haiku</span> to a fast small model — Claude Code uses it for background tasks (titles, summaries) — and <span class="mono">sonnet</span>/<span class="mono">opus</span> to a larger model for the main work. To enable gateway model discovery in the picker, also set <span class="mono">CLAUDE_CODE_ENABLE_GATEWAY_MODEL_DISCOVERY=1</span>.</p>
+
+    <h3 style="margin-top:24px">Use with any OpenAI-compatible client</h3>
+    <p class="hint">The gateway also speaks the OpenAI API. Point the OpenAI SDK, Cline, Continue, LangChain, LiteLLM, etc. at:</p>
+    <pre>Base URL:  ${base}/openai/v1
+API key:   sk-gw-...your key...
+Model:     meta/llama-3.3-70b-instruct   (raw NIM id, or a slot alias like "claude-sonnet")</pre>
+    <p class="hint"><strong>OpenAI Python SDK</strong>:</p>
+    <pre>from openai import OpenAI
+client = OpenAI(base_url="${base}/openai/v1", api_key="sk-gw-...")
+r = client.chat.completions.create(
+    model="meta/llama-3.3-70b-instruct",
+    messages=[{"role": "user", "content": "Hello!"}],
+)
+print(r.choices[0].message.content)</pre>
+    <p class="hint">Same gateway keys, model mappings, caching, rate limits, and usage tracking apply to both APIs. Endpoints: <span class="mono">POST /openai/v1/chat/completions</span>, <span class="mono">GET /openai/v1/models</span>.</p>
   `;
 }

@@ -33,6 +33,7 @@
 | | |
 |---|---|
 | 🔄 **Full API translation** | Anthropic Messages ⇄ OpenAI Chat Completions — streaming SSE, tool use, tool results, system prompts, vision, stop reasons, token usage |
+| 🔌 **OpenAI-compatible too** | Also exposes `/openai/v1/chat/completions` + `/models` — use the OpenAI SDK, Cline, Continue, LangChain, LiteLLM & more |
 | 🧰 **All Claude Code tools work** | bash, read/write/edit, grep, glob, web fetch, MCP, sub-agents — they run client-side and just work through the gateway |
 | 🎛️ **Model slot mapping** | Map Claude Code's `opus` / `sonnet` / `haiku` slots to any NIM model from a dropdown |
 | 🔑 **API key management** | Generate & revoke gateway keys from the UI — hashed at rest, shown once |
@@ -188,6 +189,38 @@ Put config in `~/.claude/settings.json` (global) or `.claude/settings.local.json
 }
 ```
 </details>
+
+---
+
+## 🔌 OpenAI-compatible endpoints
+
+Beyond Claude Code, the gateway also exposes **OpenAI-compatible endpoints**, so any OpenAI-format client — the OpenAI SDK, Cline, Continue, LangChain, LiteLLM, etc. — can use it with the same gateway keys, model mappings, caching, rate limits, and usage tracking.
+
+**Base URL:** `http://localhost:8787/openai/v1`
+
+```python
+from openai import OpenAI
+
+client = OpenAI(
+    base_url="http://localhost:8787/openai/v1",
+    api_key="sk-gw-...your gateway key...",
+)
+
+resp = client.chat.completions.create(
+    model="meta/llama-3.3-70b-instruct",   # raw NIM id, or a slot alias like "claude-sonnet"
+    messages=[{"role": "user", "content": "Hello!"}],
+)
+print(resp.choices[0].message.content)
+```
+
+| Endpoint | Notes |
+|---|---|
+| `POST /openai/v1/chat/completions` | Streaming + non-streaming; tool calls; full OpenAI response shape |
+| `GET /openai/v1/models` | Lists available NIM models |
+
+**Model field** accepts either a **raw NIM id** (`meta/llama-3.3-70b-instruct` — passed through) or a **slot alias** (`claude-opus` / `claude-sonnet` / `claude-haiku`, resolved via your mappings). Auth is the same `Authorization: Bearer sk-gw-…` gateway key.
+
+> Any tool built for OpenAI works unchanged — just point its base URL at `/openai/v1` and use a gateway key.
 
 ---
 

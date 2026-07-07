@@ -6,7 +6,7 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
 from app import db
-from app.routers import auth_api, gateway, keys, models_api, usage_api
+from app.routers import auth_api, gateway, keys, models_api, openai_api, usage_api
 
 STATIC_DIR = Path(__file__).parent / "static"
 
@@ -25,6 +25,8 @@ app.include_router(auth_api.router)
 app.include_router(keys.router)
 app.include_router(models_api.router)
 app.include_router(usage_api.router)
+# OpenAI-compatible endpoints (/openai/v1/...)
+app.include_router(openai_api.router)
 # Gateway (Anthropic-compatible) endpoints — mounted at root (/v1/...)
 app.include_router(gateway.router)
 

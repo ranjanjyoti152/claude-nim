@@ -25,16 +25,16 @@ def _coll():
     return db.get_db()["response_cache"]
 
 
-def key_for(payload: dict) -> str:
+def key_for(payload: dict, namespace: str = "anthropic") -> str:
     blob = json.dumps(payload, sort_keys=True, ensure_ascii=False)
-    return hashlib.sha256(blob.encode()).hexdigest()
+    return hashlib.sha256((namespace + "\x00" + blob).encode()).hexdigest()
 
 
-async def get(payload: dict) -> dict | None:
+async def get(payload: dict, namespace: str = "anthropic") -> dict | None:
     if not settings.cache_enabled:
         return None
     await _ensure_ttl()
-    doc = await _coll().find_one({"_id": key_for(payload)})
+    doc = await _coll().find_one({"_id": key_for(payload, namespace)})
     if not doc:
         return None
     # Guard against a clock/TTL race: honor the ttl in-app too.
@@ -44,12 +44,12 @@ async def get(payload: dict) -> dict | None:
     return doc["response"]
 
 
-async def put(payload: dict, response: dict) -> None:
+async def put(payload: dict, response: dict, namespace: str = "anthropic") -> None:
     if not settings.cache_enabled:
         return
     await _ensure_ttl()
     await _coll().update_one(
-        {"_id": key_for(payload)},
+        {"_id": key_for(payload, namespace)},
         {"$set": {"response": response, "created_at": datetime.now(timezone.utc)}},
         upsert=True,
     )

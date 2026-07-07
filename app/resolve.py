@@ -12,12 +12,23 @@ def _slot_for(model: str) -> str:
     return "default"
 
 
-async def resolve_model(claude_model: str) -> str:
-    """Map an incoming Claude model string to a configured NIM model id.
+def _looks_like_nim_id(model: str) -> bool:
+    """A raw NIM model id looks like 'vendor/model' — pass those through
+    untouched instead of routing them to the 'default' slot."""
+    m = model or ""
+    return "/" in m and not m.lower().startswith("claude")
 
-    Resolution order: exact slot match -> 'default' mapping -> the string as-is
-    (lets a user pass a raw NIM id straight through).
+
+async def resolve_model(claude_model: str) -> str:
+    """Map an incoming model string to a configured NIM model id.
+
+    - A raw NIM id ('vendor/model') is passed through unchanged.
+    - A Claude slot name (claude-opus/sonnet/haiku, or bare opus/sonnet/haiku)
+      resolves via its slot mapping.
+    - Anything else falls back to the 'default' mapping, then the string as-is.
     """
+    if _looks_like_nim_id(claude_model):
+        return claude_model
     slot = _slot_for(claude_model)
     mapping = await db.model_mappings().find_one({"slot": slot})
     if mapping:
