@@ -1,5 +1,6 @@
 from datetime import datetime, timezone
 
+from bson import ObjectId
 from fastapi import APIRouter, Depends, HTTPException, status
 from pymongo.errors import DuplicateKeyError
 
@@ -58,3 +59,37 @@ async def list_users(_: dict = Depends(require_admin)):
             UserOut(id=str(u["_id"]), email=u["email"], role=u["role"], created_at=u["created_at"])
         )
     return out
+
+
+async def _admin_count() -> int:
+    return await db.users().count_documents({"role": "admin"})
+
+
+@router.put("/users/{user_id}/role")
+async def set_role(user_id: str, body: dict, admin: dict = Depends(require_admin)):
+    role = (body or {}).get("role")
+    if role not in ("admin", "user"):
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "role must be 'admin' or 'user'")
+    target = await db.users().find_one({"_id": ObjectId(user_id)})
+    if not target:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "User not found")
+    # Don't allow demoting the last admin.
+    if target["role"] == "admin" and role == "user" and await _admin_count() <= 1:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "Cannot demote the last admin")
+    await db.users().update_one({"_id": ObjectId(user_id)}, {"$set": {"role": role}})
+    return {"ok": True}
+
+
+@router.delete("/users/{user_id}")
+async def delete_user(user_id: str, admin: dict = Depends(require_admin)):
+    if str(admin["_id"]) == user_id:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "You can't delete your own account")
+    target = await db.users().find_one({"_id": ObjectId(user_id)})
+    if not target:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "User not found")
+    if target["role"] == "admin" and await _admin_count() <= 1:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "Cannot delete the last admin")
+    # Revoke the user's gateway keys, then delete the account.
+    await db.api_keys().update_many({"owner_id": target["_id"]}, {"$set": {"revoked": True}})
+    await db.users().delete_one({"_id": target["_id"]})
+    return {"ok": True}

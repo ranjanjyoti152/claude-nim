@@ -15,6 +15,7 @@
         <a data-view="keys" onclick="show('keys')">API Keys</a>
         <a data-view="models" onclick="show('models')">Models</a>
         <a data-view="users" id="nav-users" class="hidden" onclick="show('users')">Users</a>
+        <a data-view="settings" id="nav-settings" class="hidden" onclick="show('settings')">Settings</a>
         <a data-view="setup" onclick="show('setup')">Setup Guide</a>
       </nav>
       <div class="foot">
@@ -81,9 +82,44 @@
 
       <!-- USERS (admin) -->
       <section id="view-users" class="hidden">
-        <h1 class="page-title">Users</h1>
-        <p class="page-sub">Everyone registered on this gateway.</p>
+        <h1 class="page-title">User Management</h1>
+        <p class="page-sub">Manage accounts, roles, and access.</p>
         <div class="card"><div id="usersTable"></div></div>
+      </section>
+
+      <!-- SETTINGS (admin) -->
+      <section id="view-settings" class="hidden">
+        <h1 class="page-title">Settings</h1>
+        <p class="page-sub">Default model provider &amp; gateway configuration.</p>
+        <div class="card">
+          <h3>NVIDIA NIM provider</h3>
+          <label for="setBaseUrl">NIM base URL</label>
+          <input id="setBaseUrl" placeholder="https://integrate.api.nvidia.com/v1" />
+          <label for="setApiKey">NIM API key</label>
+          <input id="setApiKey" type="password" placeholder="nvapi-… (leave blank to keep current)" />
+          <p class="hint" id="keyState"></p>
+          <label for="setBackends">Extra backends (load balancing)</label>
+          <input id="setBackends" placeholder="http://gpu1:8000/v1|,http://gpu2:8000/v1|" />
+          <p class="hint">Comma-separated <span class="mono">url|key</span> pairs. Key optional. The primary URL above is always included.</p>
+        </div>
+        <div class="card">
+          <h3>Response cache</h3>
+          <div class="row">
+            <div>
+              <label for="setCacheEnabled">Enabled</label>
+              <select id="setCacheEnabled"><option value="true">Yes</option><option value="false">No</option></select>
+            </div>
+            <div>
+              <label for="setCacheTtl">TTL (seconds)</label>
+              <input id="setCacheTtl" type="number" min="0" value="300" />
+            </div>
+          </div>
+        </div>
+        <div class="row">
+          <button class="btn" onclick="saveSettings(this)">Save settings</button>
+          <button class="btn ghost" onclick="testConnection(this)">Test connection</button>
+          <span id="settingsMsg" class="hint"></span>
+        </div>
       </section>
 
       <!-- SETUP -->

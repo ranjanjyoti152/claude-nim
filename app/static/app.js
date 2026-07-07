@@ -23,7 +23,7 @@ function esc(s) {
 }
 
 // --- Navigation ---
-const views = ["usage", "keys", "models", "users", "setup"];
+const views = ["usage", "keys", "models", "users", "settings", "setup"];
 function show(view) {
   views.forEach(v => document.getElementById("view-" + v).classList.toggle("hidden", v !== view));
   document.querySelectorAll(".nav a").forEach(a => a.classList.toggle("active", a.dataset.view === view));
@@ -31,12 +31,16 @@ function show(view) {
   if (view === "keys") loadKeys();
   if (view === "models") loadModels();
   if (view === "users") loadUsers();
+  if (view === "settings") loadSettings();
   if (view === "setup") renderSetup();
 }
 
 // --- Init ---
 document.getElementById("whoami").textContent = email + (role === "admin" ? " (admin)" : "");
-if (role === "admin") document.getElementById("nav-users").classList.remove("hidden");
+if (role === "admin") {
+  document.getElementById("nav-users").classList.remove("hidden");
+  document.getElementById("nav-settings").classList.remove("hidden");
+}
 loadUsage();
 
 // --- Usage ---
@@ -200,13 +204,84 @@ async function loadUsers() {
   const el = document.getElementById("usersTable");
   try {
     const users = await api("/api/auth/users");
-    el.innerHTML = `<table><thead><tr><th>Email</th><th>Role</th><th>Joined</th></tr></thead><tbody>` +
-      users.map(u => `<tr>
-        <td>${esc(u.email)}</td>
-        <td><span class="badge ${u.role}">${u.role}</span></td>
-        <td>${new Date(u.created_at).toLocaleString()}</td>
-      </tr>`).join("") + "</tbody></table>";
+    el.innerHTML = `<table><thead><tr><th>Email</th><th>Role</th><th>Joined</th><th>Actions</th></tr></thead><tbody>` +
+      users.map(u => {
+        const isSelf = u.email === email;
+        const toRole = u.role === "admin" ? "user" : "admin";
+        return `<tr>
+          <td>${esc(u.email)}${isSelf ? ' <span class="hint">(you)</span>' : ""}</td>
+          <td><span class="badge ${u.role}">${u.role}</span></td>
+          <td>${new Date(u.created_at).toLocaleString()}</td>
+          <td>
+            <button class="btn ghost sm" onclick="setUserRole('${u.id}','${toRole}')">Make ${toRole}</button>
+            ${isSelf ? "" : `<button class="btn danger sm" onclick="deleteUser('${u.id}','${esc(u.email)}')">Delete</button>`}
+          </td>
+        </tr>`;
+      }).join("") + "</tbody></table>";
   } catch (e) { el.innerHTML = `<div class="empty">${esc(e.message)}</div>`; }
+}
+
+async function setUserRole(id, role) {
+  try {
+    await api("/api/auth/users/" + id + "/role", { method: "PUT", body: JSON.stringify({ role }) });
+    loadUsers();
+  } catch (e) { alert(e.message); }
+}
+
+async function deleteUser(id, em) {
+  if (!confirm(`Delete ${em}? Their gateway keys will be revoked. This cannot be undone.`)) return;
+  try { await api("/api/auth/users/" + id, { method: "DELETE" }); loadUsers(); }
+  catch (e) { alert(e.message); }
+}
+
+// --- Settings (admin) ---
+async function loadSettings() {
+  try {
+    const s = await api("/api/settings");
+    document.getElementById("setBaseUrl").value = s.nim_base_url || "";
+    document.getElementById("setApiKey").value = "";
+    document.getElementById("setApiKey").placeholder = s.nvidia_api_key_set
+      ? `current: ${s.nvidia_api_key} (leave blank to keep)` : "nvapi-…";
+    document.getElementById("keyState").textContent = s.nvidia_api_key_set
+      ? "A NIM API key is configured." : "No NIM API key set — hosted NIM calls will fail until you add one.";
+    document.getElementById("setBackends").value = s.nim_backends || "";
+    document.getElementById("setCacheEnabled").value = String(!!s.cache_enabled);
+    document.getElementById("setCacheTtl").value = s.cache_ttl_seconds ?? 300;
+  } catch (e) {
+    document.getElementById("settingsMsg").innerHTML = `<span style="color:var(--danger)">${esc(e.message)}</span>`;
+  }
+}
+
+async function saveSettings(btn) {
+  const body = {
+    nim_base_url: document.getElementById("setBaseUrl").value.trim(),
+    nim_backends: document.getElementById("setBackends").value.trim(),
+    cache_enabled: document.getElementById("setCacheEnabled").value === "true",
+    cache_ttl_seconds: parseInt(document.getElementById("setCacheTtl").value, 10) || 0,
+  };
+  const key = document.getElementById("setApiKey").value.trim();
+  if (key) body.nvidia_api_key = key;
+  const orig = btn.textContent; btn.textContent = "Saving…"; btn.disabled = true;
+  try {
+    await api("/api/settings", { method: "PUT", body: JSON.stringify(body) });
+    document.getElementById("settingsMsg").innerHTML = '<span style="color:var(--ok)">Saved ✓</span>';
+    loadSettings();
+  } catch (e) {
+    document.getElementById("settingsMsg").innerHTML = `<span style="color:var(--danger)">${esc(e.message)}</span>`;
+  } finally { btn.textContent = orig; btn.disabled = false; }
+}
+
+async function testConnection(btn) {
+  const orig = btn.textContent; btn.textContent = "Testing…"; btn.disabled = true;
+  const msg = document.getElementById("settingsMsg"); msg.textContent = "";
+  try {
+    const r = await api("/api/settings/test-connection", { method: "POST" });
+    msg.innerHTML = r.ok
+      ? `<span style="color:var(--ok)">✓ Connected — ${r.model_count} models available</span>`
+      : `<span style="color:var(--danger)">✗ ${r.status || "err"}: ${esc((r.detail || "").slice(0, 80))}</span>`;
+  } catch (e) {
+    msg.innerHTML = `<span style="color:var(--danger)">${esc(e.message)}</span>`;
+  } finally { btn.textContent = orig; btn.disabled = false; }
 }
 
 // --- Setup ---

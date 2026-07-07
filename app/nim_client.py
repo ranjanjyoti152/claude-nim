@@ -5,7 +5,7 @@ from typing import AsyncIterator
 
 import httpx
 
-from app.config import settings
+from app import runtime_settings
 
 # Round-robin cursor across configured backends.
 _rr_lock = threading.Lock()
@@ -19,9 +19,14 @@ def _headers(api_key: str) -> dict:
     return h
 
 
-def _ordered_backends() -> list[dict]:
+async def _all_backends() -> list[dict]:
+    data = await runtime_settings.get_all()
+    return runtime_settings.backends_from(data)
+
+
+async def _ordered_backends() -> list[dict]:
     """Return backends starting at the next round-robin index (for failover order)."""
-    backends = settings.backends()
+    backends = await _all_backends()
     if len(backends) <= 1:
         return backends
     with _rr_lock:
@@ -31,7 +36,7 @@ def _ordered_backends() -> list[dict]:
 
 async def list_models() -> list[dict]:
     # Model catalog comes from the primary backend.
-    b = settings.backends()[0]
+    b = (await _all_backends())[0]
     url = f"{b['base_url'].rstrip('/')}/models"
     async with httpx.AsyncClient(timeout=30) as client:
         resp = await client.get(url, headers=_headers(b["api_key"]))
@@ -46,7 +51,7 @@ async def chat_completion(payload: dict) -> dict:
     model-not-found) is returned immediately since retrying won't help.
     """
     last_exc: Exception | None = None
-    for b in _ordered_backends():
+    for b in await _ordered_backends():
         url = f"{b['base_url'].rstrip('/')}/chat/completions"
         try:
             async with httpx.AsyncClient(timeout=300) as client:
@@ -70,7 +75,7 @@ async def chat_completion(payload: dict) -> dict:
 async def stream_chat_completion(payload: dict) -> AsyncIterator[AsyncIterator[str]]:
     """Streaming completion with failover on connect/5xx before first byte."""
     last_exc: Exception | None = None
-    for b in _ordered_backends():
+    for b in await _ordered_backends():
         url = f"{b['base_url'].rstrip('/')}/chat/completions"
         try:
             async with httpx.AsyncClient(timeout=300) as client:
@@ -103,7 +108,7 @@ async def probe(model: str) -> dict:
     """
     import time
 
-    b = settings.backends()[0]
+    b = (await _all_backends())[0]
     url = f"{b['base_url'].rstrip('/')}/chat/completions"
     payload = {"model": model, "max_tokens": 1, "messages": [{"role": "user", "content": "hi"}]}
     start = time.monotonic()

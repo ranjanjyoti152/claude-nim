@@ -117,12 +117,16 @@ def anthropic_to_openai(body: dict, nim_model: str) -> dict:
                 m["tool_calls"] = tool_calls
             messages.append(m)
 
+    is_stream = bool(body.get("stream", False))
     payload: dict = {
         "model": nim_model,
         "messages": messages,
         "max_tokens": body.get("max_tokens", 1024),
-        "stream": bool(body.get("stream", False)),
+        "stream": is_stream,
     }
+    if is_stream:
+        # NIM/OpenAI only emit a final usage chunk when this is set.
+        payload["stream_options"] = {"include_usage": True}
     if "temperature" in body:
         payload["temperature"] = body["temperature"]
     if "top_p" in body:

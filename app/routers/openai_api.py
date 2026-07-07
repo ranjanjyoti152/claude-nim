@@ -57,6 +57,11 @@ async def chat_completions(request: Request, owner: dict = Depends(gateway_key_o
     payload = dict(body)
     payload["model"] = nim_model
     stream = bool(body.get("stream", False))
+    if stream:
+        # Ensure NIM returns a final usage chunk (needed for token accounting).
+        opts = dict(payload.get("stream_options") or {})
+        opts["include_usage"] = True
+        payload["stream_options"] = opts
 
     if stream:
         async def event_gen():
