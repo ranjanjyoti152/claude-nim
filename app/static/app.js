@@ -22,6 +22,24 @@ function esc(s) {
   return String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
 }
 
+let _toastTimer;
+function toast(msg, isErr = false) {
+  let t = document.getElementById("toast");
+  if (!t) { t = document.createElement("div"); t.id = "toast"; document.body.appendChild(t); }
+  t.textContent = msg;
+  t.className = isErr ? "err show" : "show";
+  clearTimeout(_toastTimer);
+  _toastTimer = setTimeout(() => t.classList.remove("show"), 2600);
+}
+
+async function copyText(text, btn) {
+  try {
+    await navigator.clipboard.writeText(text);
+    toast("Copied to clipboard");
+    if (btn) { const o = btn.textContent; btn.textContent = "Copied ✓"; setTimeout(() => btn.textContent = o, 1200); }
+  } catch { toast("Copy failed — select and copy manually", true); }
+}
+
 // --- Navigation ---
 const views = ["usage", "keys", "models", "users", "settings", "setup"];
 function show(view) {
@@ -59,12 +77,12 @@ async function loadUsage() {
     ].map(([l, v]) => `<div class="stat"><div class="label">${l}</div><div class="value">${v}</div></div>`).join("");
 
     byModel.innerHTML = s.by_model.length
-      ? `<table><thead><tr><th>NIM model</th><th>Requests</th><th>Input</th><th>Output</th></tr></thead><tbody>` +
-        s.by_model.map(m => `<tr><td class="mono">${esc(m.nim_model)}</td><td>${fmt(m.requests)}</td><td>${fmt(m.input_tokens)}</td><td>${fmt(m.output_tokens)}</td></tr>`).join("") + "</tbody></table>"
+      ? `<div class="table-wrap"><table><thead><tr><th>NIM model</th><th>Requests</th><th>Input</th><th>Output</th></tr></thead><tbody>` +
+        s.by_model.map(m => `<tr><td class="mono">${esc(m.nim_model)}</td><td>${fmt(m.requests)}</td><td>${fmt(m.input_tokens)}</td><td>${fmt(m.output_tokens)}</td></tr>`).join("") + "</tbody></table></div>"
       : '<div class="empty">No requests yet. Point Claude Code at the gateway to see traffic here.</div>';
 
     recent.innerHTML = r.length
-      ? `<table><thead><tr><th>Time</th>${role === "admin" ? "<th>User</th>" : ""}<th>Model</th><th>In</th><th>Out</th><th>Mode</th><th>Status</th></tr></thead><tbody>` +
+      ? `<div class="table-wrap"><table><thead><tr><th>Time</th>${role === "admin" ? "<th>User</th>" : ""}<th>Model</th><th>In</th><th>Out</th><th>Mode</th><th>Status</th></tr></thead><tbody>` +
         r.map(x => `<tr>
           <td>${new Date(x.created_at).toLocaleString()}</td>
           ${role === "admin" ? `<td>${esc(x.owner_email || "")}</td>` : ""}
@@ -73,7 +91,7 @@ async function loadUsage() {
           <td>${fmt(x.output_tokens)}</td>
           <td>${x.streamed ? "stream" : "sync"}</td>
           <td>${x.status === "ok" ? '<span class="badge user">ok</span>' : `<span class="badge revoked">${esc(x.status)}</span>`}</td>
-        </tr>`).join("") + "</tbody></table>"
+        </tr>`).join("") + "</tbody></table></div>"
       : '<div class="empty">No requests yet.</div>';
   } catch (e) {
     grid.innerHTML = `<div class="empty">${esc(e.message)}</div>`;
@@ -92,15 +110,18 @@ async function createKey() {
     });
     const box = document.getElementById("newKey");
     box.classList.remove("hidden");
-    box.innerHTML = `Copy this now — it won't be shown again:<br><br><strong>${esc(data.key)}</strong>`;
+    box.innerHTML = `<strong>Copy this now</strong> — it won't be shown again.
+      <div class="key-value"><span>${esc(data.key)}</span>
+      <button class="btn sm" onclick="copyText('${esc(data.key)}', this)">Copy</button></div>`;
+    toast("API key created");
     loadKeys();
-  } catch (e) { alert(e.message); }
+  } catch (e) { toast(e.message, true); }
 }
 
 async function revokeKey(id) {
   if (!confirm("Revoke this key? Claude Code using it will stop working.")) return;
-  try { await api("/api/keys/" + id, { method: "DELETE" }); loadKeys(); }
-  catch (e) { alert(e.message); }
+  try { await api("/api/keys/" + id, { method: "DELETE" }); toast("Key revoked"); loadKeys(); }
+  catch (e) { toast(e.message, true); }
 }
 
 async function editLimits(id, rpm, cap) {
@@ -129,7 +150,7 @@ async function loadKeys() {
     const keys = await api("/api/keys");
     if (!keys.length) { el.innerHTML = '<div class="empty">No keys yet.</div>'; return; }
     const showOwner = role === "admin";
-    el.innerHTML = `<table><thead><tr>
+    el.innerHTML = `<div class="table-wrap"><table><thead><tr>
       <th>Label</th><th>Key</th>${showOwner ? "<th>Owner</th>" : ""}<th>Limits · Usage</th><th>Status</th><th></th>
       </tr></thead><tbody>` + keys.map(k => `<tr>
         <td>${esc(k.label)}</td>
@@ -140,7 +161,7 @@ async function loadKeys() {
         <td>${k.revoked ? "" : `
           <button class="btn ghost sm" onclick="editLimits('${k.id}', ${k.rpm_limit}, ${k.token_cap})">Limits</button>
           <button class="btn danger sm" onclick="revokeKey('${k.id}')">Revoke</button>`}</td>
-      </tr>`).join("") + "</tbody></table>";
+      </tr>`).join("") + "</tbody></table></div>";
   } catch (e) { el.innerHTML = `<div class="empty">${esc(e.message)}</div>`; }
 }
 
@@ -204,7 +225,7 @@ async function loadUsers() {
   const el = document.getElementById("usersTable");
   try {
     const users = await api("/api/auth/users");
-    el.innerHTML = `<table><thead><tr><th>Email</th><th>Role</th><th>Joined</th><th>Actions</th></tr></thead><tbody>` +
+    el.innerHTML = `<div class="table-wrap"><table><thead><tr><th>Email</th><th>Role</th><th>Joined</th><th>Actions</th></tr></thead><tbody>` +
       users.map(u => {
         const isSelf = u.email === email;
         const toRole = u.role === "admin" ? "user" : "admin";
@@ -217,7 +238,7 @@ async function loadUsers() {
             ${isSelf ? "" : `<button class="btn danger sm" onclick="deleteUser('${u.id}','${esc(u.email)}')">Delete</button>`}
           </td>
         </tr>`;
-      }).join("") + "</tbody></table>";
+      }).join("") + "</tbody></table></div>";
   } catch (e) { el.innerHTML = `<div class="empty">${esc(e.message)}</div>`; }
 }
 
